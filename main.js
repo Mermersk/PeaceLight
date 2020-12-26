@@ -91,7 +91,7 @@ void main() {
     
     if (angle > -0.1 && angle < 0.1) {
         if (!(nc.x < 0.46 || nc.x > 0.5 || nc.y < 0.17)) {
-            ss.b = ss.b * 2.5;  
+            ss.b = ss.b * 2.0;  
         }
     }
 
