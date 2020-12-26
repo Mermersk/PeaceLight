@@ -17,8 +17,7 @@ void main() {
 const fragmentSource = `#version 300 es
 precision mediump float;
 layout(location = 0) out vec4 outputColor;
-layout(location = 1) out vec4 changingImg;
-layout(location = 2) out vec4 trail;
+layout(location = 1) out vec4 trail;
 
 in vec2 v_texCoord;
 
@@ -26,6 +25,21 @@ uniform sampler2D u_image;
 uniform sampler2D u_trails;
 uniform sampler2D u_timeImage;
 uniform float u_time;
+
+
+//Angle max: 0.55, min: -0.55
+vec4 colSwitcher(float angle) {
+
+    if (angle > -0.55 && angle < -0.185) {
+        return vec4(0.5, 0.0, 0.0, 1.0);
+    } 
+
+    if (angle > -0.185 && angle < 0.182) {
+        return vec4(0.0, 0.5, 0.0, 1.0);
+    }
+
+    return vec4(0.0, 0.0, 0.5, 1.0);
+}
 
 
 void main() {
@@ -36,7 +50,7 @@ void main() {
     vec4 lightArea = vec4(0.0, 0.0, 0.0, 1.0);
 
 
-    float angle = sin(u_time) * 0.6;
+    float angle = sin(u_time) * 0.5 * nc.y;
     float sinOfAngle = sin(angle);
     float cosOfAngle = cos(angle);
 
@@ -49,13 +63,10 @@ void main() {
         1.0, 0.0,
         0.0, 1.0 
     );
-
-    mat2 inverseTM = inverse(translateMatrix);
     
     vec4 ss = vec4(0.0, 0.0, 0.0, 0.0);
 
     vec4 img = texture(u_image, nc);
-    vec4 lastImage = texture(u_timeImage, nc);
     vec4 trails = texture(u_trails, nc);
 
     lightCoords = lightCoords - vec2(0.48, 0.17);
@@ -68,26 +79,29 @@ void main() {
         //Allt fyrir utan ljósið
         lightArea = vec4(0.0, 0.0, 0.0, 0.0);
         
-        if ((img + lightArea) != lastImage) {
-            //ss = vec4(0.01, 0.05, 0.1, 0.0);
-        }
-
-        ss = ss - 0.009;
-
     } else {
         //Bara ljósið
-        //img = vec4(0.0, 0.0, 0.0, 0.0);
-        ss = vec4(1.0, 0.3, 0.5, 1.0); 
+        ss = vec4(1.0);//colSwitcher(angle);
     }
 
-    lastImage = vec4(0.0);
-    lastImage = lastImage + ss;
+    
+    ss.rgb = ss.rgb - 0.0057;
+    
+    trails = trails * step(0.0002, trails.r);
+    
+    if (angle > -0.1 && angle < 0.1) {
+        if (!(nc.x < 0.46 || nc.x > 0.5 || nc.y < 0.17)) {
+            ss.b = ss.b * 2.5;  
+        }
+    }
 
-    outputColor = img + trails + lightArea;  //mix(timeImage, img, 0.095);//img + lightArea;//img + lightArea + ss;//img * trails; // timeImage;
+    if (trails == vec4(0.0)) {
+        img = vec4(0.0);
+    }
 
-    changingImg = lastImage;
+    outputColor = ((img) / trails);  //mix(timeImage, img, 0.095);//img + lightArea;//img + lightArea + ss;//img * trails; // timeImage;
 
-    trail = trails + ss;
+    trail = (trails + ss);//mix(ss, lightArea, 0.2);
 
 }
 `
@@ -137,9 +151,9 @@ const imgTex = twgl.createTexture(gl, {
 })
 
 // 0: Constant img, 1: timeImage, 2: only trails
-let fb1 = twgl.createFramebufferInfo(gl, [{attach: gl.COLOR_ATTACHMENT0}, {attach: gl.COLOR_ATTACHMENT1}, {attach: gl.COLOR_ATTACHMENT2}])
+let fb1 = twgl.createFramebufferInfo(gl, [{attach: gl.COLOR_ATTACHMENT0}, {attach: gl.COLOR_ATTACHMENT1}])
 console.log("Readyness of fb: " + gl.checkFramebufferStatus(gl.FRAMEBUFFER))
-let fb2 = twgl.createFramebufferInfo(gl, [{attach: gl.COLOR_ATTACHMENT0}, {attach: gl.COLOR_ATTACHMENT1}, {attach: gl.COLOR_ATTACHMENT2}])
+let fb2 = twgl.createFramebufferInfo(gl, [{attach: gl.COLOR_ATTACHMENT0}, {attach: gl.COLOR_ATTACHMENT1}])
 console.log("Readyness of fb: " + gl.checkFramebufferStatus(gl.FRAMEBUFFER))
 twgl.bindFramebufferInfo(gl, null);
 //let pfb1 = twgl.createFramebufferInfo(gl, [{attach: gl.COLOR_ATTACHMENT1}])
@@ -166,7 +180,7 @@ function firstDraw() {
     twgl.setUniforms(glProgram, uniforms)
 
     twgl.bindFramebufferInfo(gl, fb1)
-    gl.drawBuffers([gl.NONE, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2])
+    gl.drawBuffers([gl.NONE, gl.COLOR_ATTACHMENT1])
     twgl.drawBufferInfo(gl, buffers)
 
     //uniforms.u_image = fb1.attachments[0]
@@ -182,14 +196,11 @@ function firstDraw() {
         gl.clear(gl.COLOR_BUFFER_BIT)
 
         uniforms.u_time = timeInSeconds
-        uniforms.u_trails = fb1.attachments[2]
-        uniforms.u_timeImage = fb1.attachments[1]
-
-        //uniforms.u_image = fb1.attachments[0]
+        uniforms.u_trails = fb1.attachments[1]
         
         twgl.setUniforms(glProgram, uniforms)
         twgl.bindFramebufferInfo(gl, fb2)
-        gl.drawBuffers([gl.NONE, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2])
+        gl.drawBuffers([gl.NONE, gl.COLOR_ATTACHMENT1])
         twgl.drawBufferInfo(gl, buffers)
 
         twgl.bindFramebufferInfo(gl, null)
@@ -206,6 +217,6 @@ function firstDraw() {
     requestAnimationFrame(draw)
 }
 
-setTimeout(firstDraw, 8)
+setTimeout(firstDraw, 15)
 
 
